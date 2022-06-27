@@ -24,14 +24,29 @@
             :close-on-press-escape="false"
             @close="handleClose"
           >
-            <el-form :model="form">
-              <el-form-item label="账目名称" :label-width="formLabelWidth">
+            <el-form :model="form" :rules="rules" ref="addForm">
+              <el-form-item
+                label="账目名称"
+                prop="name"
+                :label-width="formLabelWidth"
+              >
                 <el-input v-model="form.name" autocomplete="off"></el-input>
               </el-form-item>
-              <el-form-item label="账目金额" :label-width="formLabelWidth">
-                <el-input v-model="form.amount" autocomplete="off"></el-input>
+              <el-form-item
+                label="账目金额"
+                prop="amount"
+                :label-width="formLabelWidth"
+              >
+                <el-input
+                  v-model.number="form.amount"
+                  autocomplete="off"
+                ></el-input>
               </el-form-item>
-              <el-form-item label="账目类型" :label-width="formLabelWidth">
+              <el-form-item
+                label="账目类型"
+                prop="amountType"
+                :label-width="formLabelWidth"
+              >
                 <el-select
                   v-model="form.amountType"
                   placeholder="请选择收入/支出"
@@ -39,6 +54,17 @@
                   <el-option label="收入" value="+"></el-option>
                   <el-option label="支出" value="-"></el-option>
                 </el-select>
+              </el-form-item>
+              <el-form-item
+                label="日期"
+                prop="date"
+                :label-width="formLabelWidth"
+              >
+                <el-input
+                  v-model="form.date"
+                  autocomplete="off"
+                  placeholder="以年-月-日格式填写 默认为当天日期"
+                ></el-input>
               </el-form-item>
             </el-form>
             <div slot="footer" class="dialog-footer">
@@ -49,12 +75,8 @@
                 "
                 >取 消</el-button
               >
-              <el-button
-                type="primary"
-                @click="
-                  dialogFormVisible = false;
-                  postToAdd();
-                "
+              <el-button @click="resetForm('addForm')">重置</el-button>
+              <el-button type="primary" @click="postToAdd('addForm')"
                 >确 定</el-button
               >
             </div>
@@ -74,12 +96,40 @@
 
 <script>
 import axios from "axios";
-
 import Search from "./components/Search";
 import navigationBar from "./components/navigationBar";
 export default {
   name: "App",
   data() {
+    var checkName = (rule, value, callback) => {
+      if (!value) {
+        return callback(new Error("账目名称不能为空"));
+      }
+      callback();
+    };
+    var checkAmount = (rule, value, callback) => {
+      if (value === "") {
+        callback(new Error("账目金额不能为空"));
+      }
+      setTimeout(() => {
+        if (!Number.isInteger(value)) {
+          callback(new Error("请输入数字值"));
+        } else {
+          callback();
+        }
+      }, 1000);
+    };
+    var checkAmountType = (rule, value, callback) => {
+      if (value === "") {
+        callback(new Error("必须选择账目类型"));
+      }
+      callback();
+    };
+    // var checkDate = (rule, value, callback) => {
+    //   if (value === "") {
+    //     callback(new Error("必须选择账目类型"));
+    //   }
+    // };
     return {
       fullscreenLoading: true,
       dialogFormVisible: false,
@@ -88,6 +138,7 @@ export default {
         name: "",
         amount: "",
         amountType: "",
+        date: "",
       },
       formLabelWidth: "120px",
       addThing: "",
@@ -97,14 +148,23 @@ export default {
       changeName: "",
       changeAmount: "",
       removeID: "",
+      rules: {
+        name: [{ validator: checkName, trigger: "blur" }],
+        amount: [{ validator: checkAmount, trigger: "blur" }],
+        amountType: [{ validator: checkAmountType, trigger: "blur" }],
+        // date: [{ validator: checkDate, trigger: "blur" }],
+      },
     };
   },
   components: {
     Search,
     navigationBar,
-    // switchColor,
   },
   methods: {
+    resetForm(formName) {
+      this.$refs[formName].resetFields();
+    },
+
     toShowHeader(val) {
       this.showHeader = val;
     },
@@ -125,68 +185,84 @@ export default {
         message: "已取消添加",
       });
     },
-    postToFocus() {
-      axios
-        .post("/api/getFocus")
-        .then((response) => {
-          console.log("请求成功", response.data);
-        })
-        .catch((error) => {
-          console.log("请求失败", error.message);
-        });
-    },
     postToHistory() {
       axios
-        .post("/api/getHistory")
+        .get("http://localhost:27017/account/getHistory")
         .then((response) => {
+          console.log(response);
           this.$refs.tableData.tableData = response.data.data;
         })
         .catch((error) => {
           console.log("请求失败", error.message);
         });
     },
-    postToAdd() {
-      var fAdd = new FormData();
-      fAdd.append("name", this.form.name);
-      fAdd.append("number", this.form.amountType + this.form.amount);
-      axios
-        .post(`/api/addDeal?`, fAdd)
-        .then((response) => {
-          console.log("请求成功", response.data);
-          this.postToHistory();
-          this.$message({
-            type: "success",
-            message: "添加成功!",
-            flag: true,
+    postToAdd(formName) {
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          const date = now.getDate();
+          const time = year + "-" + month + "-" + date;
+          var qs = require("qs");
+          var data = qs.stringify({
+            name: this.form.name,
+            amount: this.form.amount,
+            amountType: this.form.amountType,
+            date: this.form.date ? this.form.date : time,
+            showAmount: this.form.amount
+              ? this.form.amountType + this.form.amount
+              : this.form.amount,
           });
-        })
-        .catch((error) => {
-          console.log("请求失败", error.message);
-          this.$message({
-            type: "error",
-            message: "添加失败!",
-          });
-        });
+          axios({
+            method: "post",
+            url: "http://localhost:27017/account/add",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data: data,
+          })
+            .then((response) => {
+              console.log("请求成功", response.data);
+              window.location.reload();
+              this.$message({
+                type: "success",
+                message: "添加成功!",
+                flag: true,
+              });
+            })
+            .catch((error) => {
+              console.log("请求失败", error.message);
+              this.$message({
+                type: "error",
+                message: "添加失败!",
+              });
+            });
+        } else {
+          return false;
+        }
+      });
     },
-    postToSearch() {
-      var fSearch = new FormData();
-      fSearch.append("name", this.getName);
-      axios
-        .post(`/api/search?`, fSearch)
-        .then((response) => {
-          console.log("请求成功", response.data.data);
-        })
-        .catch((error) => {
-          console.log("请求失败", error.message);
-        });
-    },
-    postToChange(inputID, inputName, inputNumber) {
-      var fchange = new FormData();
-      fchange.append("id", parseInt(inputID));
-      fchange.append("name", inputName);
-      fchange.append("number", inputNumber);
-      axios
-        .post(`/api/change?`, fchange)
+    postToChange(inputID, inputName, inputAmount, inputAmountType, inputDate) {
+      var axios = require("axios");
+      var qs = require("qs");
+      var data = qs.stringify({
+        name: inputName,
+        amount: inputAmount,
+        amountType: inputAmountType,
+        showAmount: inputAmountType + inputAmount,
+        date: inputDate,
+      });
+      var config = {
+        method: "put",
+        url: `http://localhost:27017/account/${inputID}`,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data: data,
+      };
+
+      axios(config)
         .then((response) => {
           console.log("请求成功", response.data);
           this.$message({
@@ -205,12 +281,15 @@ export default {
         });
     },
     postToRemove(id) {
-      var fremove = new FormData();
-      fremove.append("id", parseInt(id));
-      axios
-        .post(`/api/remove?`, fremove)
+      var config = {
+        method: "delete",
+        url: `http://localhost:27017/account/${id}`,
+        headers: {},
+      };
+      axios(config)
         .then((response) => {
           console.log("请求成功", response.data);
+          window.location.reload();
         })
         .catch((error) => {
           console.log("请求失败", error.message);
@@ -219,30 +298,32 @@ export default {
   },
   created() {
     this.openFullScreen1();
-    this.postToHistory();
   },
   mounted() {
     this.$bus.$off("deleteData").$on("deleteData", (id) => {
       this.postToRemove(id);
-      // console.log(id);
-      this.postToHistory();
     });
     this.$bus.$off("modifyData").$on("modifyData", (formData) => {
       this.postToChange(
         formData.id,
         formData.name,
-        formData.amountType + formData.amount
+        formData.amount,
+        formData.amountType,
+        formData.date
       );
-      this.postToHistory();
     });
   },
-  updated() {
-    this.postToHistory();
-  },
+  // updated() {
+  //   this.postToHistory();
+  // },
 };
 </script>
 
 <style scoped>
+.calendar {
+  text-align: center;
+  width: 400px;
+}
 .el-header,
 .el-footer {
   background-color: #545c64;

@@ -2,7 +2,7 @@
   <div>
     <el-form action="" class="search-bar" @submit.native.prevent>
       <input type="search" name="search" required v-model="searchName" />
-      <button class="search-btn" @click="toSearch" type="button">
+      <button class="search-btn" @click="toSearch()" type="button">
         <span>Search</span>
       </button>
     </el-form>

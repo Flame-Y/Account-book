@@ -3,6 +3,7 @@ import accountList from "../components/accountList";
 import statistic from "../components/statistic";
 
 export default new VueRouter({
+    mode:'hash',
     routes:[
         {
             path:'/',
@@ -16,6 +17,7 @@ export default new VueRouter({
         {
             path:'/statistic',
             component:statistic
-        }
+        },
+        
     ]
 })

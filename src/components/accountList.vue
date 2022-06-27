@@ -1,50 +1,77 @@
 <template>
-  <div>
-    <transition name="el-zoom-in-center"
-      ><el-table
-        :data="tables"
-        style="width: 100%"
-        border
-        show-summary
-        :summary-method="getSummaries"
-        sum-text="总和"
-        height="470"
-        ref="multipleTable"
-        v-show="show2"
-      >
-        <el-table-column prop="date" label="时间" sortable width="180">
-        </el-table-column>
-        <el-table-column prop="name" label="事件"> </el-table-column>
-        <el-table-column prop="number" label="金额" sortable width="180">
-        </el-table-column>
-        <el-table-column prop="operation" label="操作" width="120">
-          <template slot-scope="scope">
-            <el-button
-              type="primary"
-              icon="el-icon-edit"
-              circle
-              @click="
-                dialogFormVisible = true;
-                getData(scope.row);
-              "
-            ></el-button>
-            <el-button
-              type="danger"
-              icon="el-icon-delete"
-              circle
-              @click="openDelete(scope.row.id)"
-            ></el-button>
-          </template>
-        </el-table-column> </el-table
-    ></transition>
-
+  <div id="con">
+    <transition name="el-zoom-in-center">
+      <template>
+        <div>
+          <el-table
+            :data="
+              tableData.slice((currpage - 1) * pagesize, currpage * pagesize)
+            "
+            style="width: 100%"
+            border
+            show-summary
+            :summary-method="getSummaries"
+            sum-text="总和"
+            max-height="470"
+            ref="multipleTable"
+            v-show="show2"
+          >
+            <el-table-column prop="date" label="时间" sortable width="180">
+            </el-table-column>
+            <el-table-column prop="name" label="事件"> </el-table-column>
+            <el-table-column
+              prop="showAmount"
+              label="金额"
+              sortable
+              width="180"
+            >
+              <!-- <template slot-scope="scope">
+                <p>{{ scope.row.amountType + scope.row.amount }}</p>
+              </template> -->
+            </el-table-column>
+            <el-table-column prop="operation" label="操作" width="120">
+              <template slot-scope="scope">
+                <el-button
+                  type="primary"
+                  icon="el-icon-edit"
+                  circle
+                  @click="
+                    dialogFormVisible = true;
+                    getData(scope.row);
+                  "
+                ></el-button>
+                <el-button
+                  type="danger"
+                  icon="el-icon-delete"
+                  circle
+                  @click="openDelete(scope.row._id)"
+                ></el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-pagination
+            background
+            layout="prev, pager, next, total,
+        jumper"
+            :page-size="pagesize"
+            :total="tableData.length"
+            @current-change="handleCurrentChange"
+            @size-change="handleSizeChange"
+          >
+          </el-pagination>
+        </div>
+      </template>
+    </transition>
     <el-dialog
       title="修改账目"
       :visible.sync="dialogFormVisible"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
     >
-      <el-form :model="form">
+      <el-form :model="form"
+        ><el-form-item label="日期" :label-width="formLabelWidth">
+          <el-input v-model="form.date" autocomplete="off"></el-input>
+        </el-form-item>
         <el-form-item label="账目名称" :label-width="formLabelWidth">
           <el-input v-model="form.name" autocomplete="off"></el-input>
         </el-form-item>
@@ -90,19 +117,44 @@
 </style>
 
 <script>
+import axios from "axios";
+
 export default {
   methods: {
-    // 获取原数据
+    postToHistory() {
+      let me = this;
+      axios
+        .get("http://localhost:27017/account/getHistory")
+        // .get(`/api/getHistory`)
+        .then((response) => {
+          console.log(response);
+          me.tableData = response.data.data;
+        })
+        .catch((error) => {
+          console.log("请求失败", error.message);
+        });
+    },
+    postToSearch(name) {
+      let me = this;
+      var fSearch = new FormData();
+      fSearch.append("name", name);
+      axios
+        .get(`http://localhost:27017/account/${name}`)
+        .then((response) => {
+          console.log("请求成功", response);
+          me.tableData = response.data.data;
+        })
+        .catch((error) => {
+          console.log("请求失败", error.message);
+        });
+    },
     getData(data) {
       this.form.name = data.name;
-      // 过滤掉第一位的符号
-      this.form.amount = data.number.substr(1);
-      this.form.id = data.id;
-      if (data.number >= 0) {
-        this.form.amountType = "+";
-      } else {
-        this.form.amountType = "-";
-      }
+      this.form.amount = data.amount;
+      // this.form.amountType = data.amountType === "-" ? "支出" : "收入";
+      this.form.amountType = data.amountType;
+      this.form.id = data._id;
+      this.form.date = data.date;
     },
     // 未修改的回调函数
     closeThis() {
@@ -114,7 +166,6 @@ export default {
     // 控制header部分的显示
     toShowHeader() {
       this.$emit("toShowHeader", true);
-      console.log(1);
     },
     showTable() {
       this.show2 = true;
@@ -166,6 +217,7 @@ export default {
             type: "success",
             message: "删除成功!",
           });
+          this.postToHistory();
         })
         .catch(() => {
           this.$message({
@@ -182,6 +234,12 @@ export default {
     //   }
     //   return "";
     // },
+    handleCurrentChange(cpage) {
+      this.currpage = cpage;
+    },
+    handleSizeChange(psize) {
+      this.pagesize = psize;
+    },
   },
   data() {
     return {
@@ -192,18 +250,23 @@ export default {
         amount: "",
         amountType: "",
         id: "",
+        date: "",
       },
       formLabelWidth: "120px",
       tableData: [],
+      pagesize: 10,
+      currpage: 1,
       searchName: "",
       showHeader: true,
     };
   },
-  props: ["postToHistory"],
   mounted() {
+    this.postToHistory();
     this.$bus.$on("searchName", (data) => {
-      this.searchName = data;
-      console.log(this.searchName);
+      if (data === "") {
+        return;
+      }
+      this.postToSearch(data);
     });
     this.toShowHeader();
     this.showTable();
@@ -225,12 +288,19 @@ export default {
 </script>
 
 <style scoped>
-div {
-  height: 470px;
+.con {
+  height: 460px;
 }
 .el-table {
   overflow: visible !important;
   /* 用分页功能的时候启用 */
   /* height: 100%; */
 }
+.el-pagination {
+  text-align: center;
+}
 </style>
+目前还没有解决的问题：
+1.分页启用后总和会变成每个分页的总和
+2.分页功能和动画效果不能并存
+3.分页功能会影响表单的高度，导致样式不美观
