@@ -1,5 +1,7 @@
 <template>
   <div>
+    <p>总和：{{ sum }}</p>
+
     <div ref="myChart" id="myChart"></div>
   </div>
 </template>
@@ -12,6 +14,7 @@ export default {
     return {
       earning: "",
       expend: "",
+      sum: "",
     };
   },
   mounted() {
@@ -25,11 +28,20 @@ export default {
     },
     postToFocus() {
       axios
-        .post("/api/getFocus")
+        .get("http://localhost:27017/account/getHistory")
         .then((response) => {
-          this.earning = parseInt(response.data.data.earning);
-          this.expend = parseInt(response.data.data.expend);
-          console.log();
+          let earning = 0;
+          let expend = 0;
+          for (let i = 0; i < response.data.data.length; i++) {
+            if (response.data.data[i].amountType === "+") {
+              earning += parseInt(response.data.data[i].amount);
+            } else {
+              expend += parseInt(response.data.data[i].amount);
+            }
+          }
+          this.earning = earning;
+          this.expend = expend;
+          this.sum = earning - expend;
           this.setMyEchart();
         })
         .catch((error) => {
