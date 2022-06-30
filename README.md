@@ -28,5 +28,5 @@ npm install --registry=https://registry.npm.taobao.org
 (通过vscode左侧的第三个按钮 源代码管理 来切换分支到mongo)
 不会的话也可以直接把mongo分支中的app.js的文件复制粘贴
 
-然后直接npm run serve 
+然后同上
 云服务器的请求可能会有点慢
